@@ -38,16 +38,16 @@ class posOnField(Enum):
     DEMOLISHED = auto()
     UNKNOWN = auto()
 
-def is_any_teammate_in_position(friends, position):
+def is_any_teammate_in_position(friends, position, ball=None):
     posFunc = getPosOnField if position.__class__.__name__ == "posOnField" else getPosRelativeToBall
     for friend in friends:
-            if posFunc(friend) == position:
+            if posFunc(friend, ball) == position:
                 return True
     return False
 
-def is_any_teammate_in_positions(friends, positions):
+def is_any_teammate_in_positions(friends, positions, ball=None):
     for position in positions:
-        if is_any_teammate_in_position(friends, position):
+        if is_any_teammate_in_position(friends, position, ball):
             return True
     return False
 
@@ -73,7 +73,7 @@ def point_inside_quadrilateral_2d(point, quadrilateral):
     # This is to account for any floating point errors
     return almost_equals(actual_area, quadrilateral_area, 0.001)
 
-def getPosOnField(self):
+def getPosOnField(self, ball=None):
     quadrilateralJson = '''
         {
         "GOALIE": [
@@ -151,9 +151,25 @@ def getPosOnField(self):
             self.posOnField = posOnField[possible_quadrilateral['name']]
     return self.posOnField
 
-def getPosRelativeToBall(self):
+def getPosRelativeToBall(self, ball):
     if self.demolished:
         self.posRelativeToBall = posRelativeToBall.DEMOLISHED
+        return self.posRelativeToBall
+    ball_position_teamless = ball.location*side(self.team)
+    my_position_teamless = self.location*side(self.team)
+    my_velocity_teamless = self.velocity*side(self.team)
+    if self.name == 'rivques_': print(my_velocity_teamless.y, self.team, side(self.team))
+    if -300 < ball_position_teamless.y - my_position_teamless.y < 300 and abs(ball_position_teamless.x-my_position_teamless.x) < self.hitbox.width/2+ball.shape.hitbox.diameter/2 + 100:
+        self.posRelativeToBall = posRelativeToBall.IN_POSSESSION
+    elif 0 < ball_position_teamless.y - my_position_teamless.y < 1000 - self.hitbox.length and abs(ball_position_teamless.x-my_position_teamless.x) < 750:
+        self.posRelativeToBall = posRelativeToBall.CLOSE_IN_FRONT
+    elif ball_position_teamless.y - my_position_teamless.y > 0:
+        self.posRelativeToBall = posRelativeToBall.OFFSIDE
+    else:
+        if my_velocity_teamless.y < 0:
+            self.posRelativeToBall = posRelativeToBall.FAR_BEHIND_TOWARD
+        else:
+            self.posRelativeToBall = posRelativeToBall.FAR_BEHIND_AWAY
     return self.posRelativeToBall
 
 # Vector supports 1D, 2D and 3D Vectors, as well as calculations between them
